@@ -91,18 +91,14 @@
 
             <div class="flex items-center gap-2 justify-between md:justify-end">
                 <div id="athleteProfileBadge" class="text-xs text-slate-300 flex items-center gap-3 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-700/60">尚未選擇投手</div>
-                <button onclick="openAthleteModal()" class="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-600 rounded-lg text-xs">
-                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> 編輯資料
-                </button>
             </div>
         </div>
 
         <!-- KPI 數據看板 -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="glass-card p-3 border-l-4 border-l-sky-500">
-                <div class="text-slate-400 text-xs">總投球數 / 球種</div>
-                <div id="kpiCount" class="text-xl md:text-2xl font-black text-white mt-1">--</div>
-                <div id="kpiPitchShare" class="text-[11px] text-sky-400/80 mt-0.5">佔比: --</div>
+                <div class="text-slate-400 text-xs">總投球數</div>
+                <div id="kpiCount" class="text-xl md:text-2xl font-black text-white mt-1">0</div>
             </div>
             <div class="glass-card p-3 border-l-4 border-l-emerald-500">
                 <div class="text-slate-400 text-xs">平均球速 / 極速 (mph)</div>
@@ -111,17 +107,14 @@
                     <span class="text-slate-500 text-xs">/</span>
                     <span id="kpiMaxVelo" class="text-sm md:text-base font-bold text-emerald-200">--</span>
                 </div>
-                <div id="kpiVeloSD" class="text-[11px] text-slate-400 mt-0.5">球速標準差: --</div>
             </div>
             <div class="glass-card p-3 border-l-4 border-l-indigo-500">
                 <div class="text-slate-400 text-xs">平均轉速 (Spin Rate)</div>
                 <div id="kpiSpin" class="text-xl md:text-2xl font-black text-indigo-300 mt-1">--</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">轉速標準差: <span id="kpiSpinSD">--</span></div>
             </div>
             <div class="glass-card p-3 border-l-4 border-l-purple-500">
-                <div class="text-slate-400 text-xs">旋轉效率 (Efficiency)</div>
+                <div class="text-slate-400 text-xs">旋轉效率</div>
                 <div id="kpiEfficiency" class="text-xl md:text-2xl font-black text-purple-300 mt-1">--</div>
-                <div id="kpiTilt" class="text-[11px] text-purple-200/80 mt-0.5">有效轉速: <span id="kpiTrueSpin">--</span></div>
             </div>
             <div class="glass-card p-3 border-l-4 border-l-teal-500">
                 <div class="text-slate-400 text-xs">垂直/水平位移 (Inches)</div>
@@ -130,27 +123,11 @@
                     <span class="text-slate-500 text-xs">/</span>
                     <span id="kpiHB" class="text-lg md:text-xl font-black text-cyan-300">--</span>
                 </div>
-                <div class="text-[11px] text-slate-400 mt-0.5">IVB (垂直) / HB (水平)</div>
             </div>
             <div class="glass-card p-3 border-l-4 border-l-amber-500">
-                <div class="text-slate-400 text-xs">出球高度與穩定度</div>
+                <div class="text-slate-400 text-xs">出球高度</div>
                 <div id="kpiRelease" class="text-lg md:text-xl font-black text-amber-300 mt-1">--</div>
-                <div id="kpiEval" class="text-[11px] text-amber-400 font-semibold mt-0.5">--</div>
             </div>
-        </div>
-
-        <!-- 立體捕手視角 3D 視覺化 -->
-        <div class="glass-card p-4 md:p-5 border border-sky-500/30">
-            <div class="flex flex-col lg:flex-row justify-between gap-3 mb-3">
-                <div>
-                    <h2 class="text-base md:text-lg font-bold flex items-center gap-2 text-sky-200">
-                        <i data-lucide="eye" class="text-sky-400 w-5 h-5"></i>
-                        立體捕手視角：球從哪裡進來？出手高不高？
-                    </h2>
-                    <p class="text-xs text-slate-400 mt-1">站在捕手後面往投手看。紅框是好球帶。線條從出手點飛到本壘板。</p>
-                </div>
-            </div>
-            <div id="catcherView3d" class="w-full h-[400px] rounded-lg bg-slate-950/40 flex items-center justify-center text-slate-500 text-sm">3D 視覺化視窗</div>
         </div>
 
         <!-- 逐球明細列表 -->
@@ -162,7 +139,7 @@
                 </h3>
                 <span id="pitchListCountBadge" class="text-xs px-2.5 py-1 rounded-full bg-teal-950/80 text-teal-300 border border-teal-700/60 font-semibold">共 0 球</span>
             </div>
-            <div class="overflow-x-auto max-h-[400px] overflow-y-auto rounded-lg border border-slate-700/60">
+            <div class="overflow-x-auto max-h-[450px] overflow-y-auto rounded-lg border border-slate-700/60">
                 <table class="w-full text-left text-xs text-slate-300">
                     <thead class="bg-slate-900/95 text-slate-400 sticky top-0 z-10 text-[11px]">
                         <tr>
@@ -185,18 +162,14 @@
     </div>
 
     <script>
-        // Firebase 簡易設定（若無填寫則自動切換為本機模式）
-        const firebaseConfig = {
-            apiKey: "", authDomain: "", databaseURL: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: ""
-        };
-
+        const firebaseConfig = { apiKey: "", authDomain: "", databaseURL: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" };
         let db = null;
         try {
             if (firebaseConfig.apiKey) {
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
             }
-        } catch (e) { console.log("使用本機 localStorage 模式"); }
+        } catch (e) { console.log("使用本機模式"); }
 
         window.records = JSON.parse(localStorage.getItem('rapsodo_records')) || [];
 
@@ -204,27 +177,30 @@
         updateDropdowns();
         updateDashboard();
 
-        // 智慧欄位對應解析 CSV
         function importCSV(event) {
             const file = event.target.files[0];
             if (!file) return;
+            
+            // 支援 Big5 或 UTF-8 編碼讀取
             const reader = new FileReader();
             reader.onload = function(e) {
                 parseRapsodoCSV(e.target.result);
             };
-            reader.readAsText(file, 'UTF-8');
+            // 嘗試用 Big5 讀取（許多 Excel 產生的 CSV 預設編碼）
+            reader.readAsText(file, 'Big5');
         }
 
         function parseRapsodoCSV(csvText) {
             const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
             if (lines.length < 2) return alert("CSV 檔案格式錯誤或無內容");
             
-            // 處理 CSV 標頭（去除引號與空白）
             const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+            console.log("偵測到的 CSV 欄位名稱：", headers); // 可按 F12 在 Console 查看欄位
+
             let newRecords = [];
 
             for (let i = 1; i < lines.length; i++) {
-                const currentLine = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); // 支援引號內含逗號
+                const currentLine = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
                 if (currentLine.length < 2) continue;
                 
                 let row = {};
@@ -233,11 +209,12 @@
                     row[h] = val;
                 });
 
-                // 多種可能欄位名稱對應（支援 Rapsodo 不同版本輸出）
-                const athleteName = row['Pitcher'] || row['Name'] || row['投手'] || '預設投手';
-                const pitchType = row['PitchType'] || row['TaggedPitchType'] || row['球種'] || 'Fastball';
-                const velo = parseFloat(row['RelSpeed'] || row['Velo'] || row['球速'] || 0);
-                const spin = parseFloat(row['SpinRate'] || row['轉速'] || 0);
+                // 彈性對應各種 Rapsodo 欄位名稱
+                const athleteName = row['Pitcher'] || row['Name'] || row['投手姓名'] || row['投手'] || '預設投手';
+                const pitchType = row['PitchType'] || row['TaggedPitchType'] || row['Pitch Type'] || row['球種'] || 'Fastball';
+                
+                const velo = parseFloat(row['RelSpeed'] || row['Velo'] || row['Velocity'] || row['球速'] || 0);
+                const spin = parseFloat(row['SpinRate'] || row['Spin Rate'] || row['轉速'] || 0);
                 const ivb = parseFloat(row['InducedVertBreak'] || row['VerticalBreak'] || row['垂直位移'] || 0);
                 const hb = parseFloat(row['HorzBreak'] || row['HorizontalBreak'] || row['水平位移'] || 0);
                 const call = row['PitchCall'] || row['Call'] || row['結果'] || '';
@@ -255,10 +232,6 @@
                 });
             }
 
-            if (newRecords.length === 0) {
-                return alert("無法解析任何資料，請確認這是否為標準 Rapsodo CSV 格式！");
-            }
-
             window.records = window.records.concat(newRecords);
             localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
 
@@ -268,7 +241,7 @@
 
             updateDropdowns();
             updateDashboard();
-            alert(`成功匯入 ${newRecords.length} 筆投球資料！`);
+            alert(`成功解析並匯入 ${newRecords.length} 筆投球資料！`);
         }
 
         function updateDropdowns() {
@@ -294,6 +267,23 @@
             document.getElementById('kpiCount').textContent = filtered.length;
             document.getElementById('pitchListCountBadge').textContent = `共 ${filtered.length} 球`;
 
+            if (filtered.length > 0) {
+                const velos = filtered.map(r => r.velo).filter(v => v > 0);
+                const spins = filtered.map(r => r.spin).filter(s => s > 0);
+                
+                const avgVelo = velos.length ? (velos.reduce((a, b) => a + b, 0) / velos.length).toFixed(1) : '--';
+                const maxVelo = velos.length ? Math.max(...velos).toFixed(1) : '--';
+                const avgSpin = spins.length ? Math.round(spins.reduce((a, b) => a + b, 0) / spins.length) : '--';
+
+                document.getElementById('kpiAvgVelo').textContent = avgVelo;
+                document.getElementById('kpiMaxVelo').textContent = maxVelo;
+                document.getElementById('kpiSpin').textContent = avgSpin;
+            } else {
+                document.getElementById('kpiAvgVelo').textContent = '--';
+                document.getElementById('kpiMaxVelo').textContent = '--';
+                document.getElementById('kpiSpin').textContent = '--';
+            }
+
             const tbody = document.getElementById('pitchLogTableBody');
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-500">目前沒有資料，請點擊「匯入 Rapsodo CSV」</td></tr>`;
@@ -305,11 +295,11 @@
                     <td class="p-2.5">${i + 1}</td>
                     <td class="p-2.5">${r.athleteName}</td>
                     <td class="p-2.5 font-bold text-amber-300">${r.pitchType}</td>
-                    <td class="p-2.5 text-emerald-400 font-bold">${r.velo}</td>
-                    <td class="p-2.5 text-indigo-300">${r.spin}</td>
-                    <td class="p-2.5 text-teal-300">${r.ivb}</td>
-                    <td class="p-2.5 text-cyan-300">${r.hb}</td>
-                    <td class="p-2.5 text-slate-400">${r.call}</td>
+                    <td class="p-2.5 text-emerald-400 font-bold">${r.velo || '--'}</td>
+                    <td class="p-2.5 text-indigo-300">${r.spin || '--'}</td>
+                    <td class="p-2.5 text-teal-300">${r.ivb || 0}</td>
+                    <td class="p-2.5 text-cyan-300">${r.hb || 0}</td>
+                    <td class="p-2.5 text-slate-400">${r.call || '--'}</td>
                 </tr>
             `).join('');
         }
@@ -333,9 +323,6 @@
             downloadAnchor.click();
             downloadAnchor.remove();
         }
-
-        function openAthleteModal() { document.getElementById('athleteModal')?.classList.remove('hidden'); }
-        function closeAthleteModal() { document.getElementById('athleteModal')?.classList.add('hidden'); }
     </script>
 </body>
 </html>
