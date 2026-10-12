@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rapsodo 3D 投手投球分析儀表板 (Firebase 雲端同步版)</title>
+    <title>Rapsodo 3D 投手投球分析儀表板</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -42,7 +42,7 @@
                 <h1 class="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-teal-300 flex items-center gap-2">
                     <i data-lucide="activity" class="w-7 h-7 text-sky-400"></i> Rapsodo 3D 投手投球分析儀表板
                 </h1>
-                <p id="syncStatus" class="text-xs text-teal-400 mt-0.5">正在連線至 Firebase 雲端資料庫...</p>
+                <p id="syncStatus" class="text-xs text-amber-400 mt-0.5">正在連線至 Firebase 雲端...</p>
             </div>
             
             <div class="flex flex-wrap items-center gap-2.5">
@@ -51,7 +51,7 @@
                     <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(event)">
                 </label>
 
-                <button onclick="clearAllCloudData()" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 active:scale-95 rounded-lg text-xs font-semibold border border-rose-800 transition">
+                <button onclick="clearAllData()" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 active:scale-95 rounded-lg text-xs font-semibold border border-rose-800 transition">
                     <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 清空雲端資料
                 </button>
 
@@ -71,26 +71,6 @@
                         <option value="">載入中...</option>
                     </select>
                 </div>
-
-                <div class="flex items-center gap-2">
-                    <i data-lucide="calendar" class="text-teal-400 w-4 h-4"></i>
-                    <span class="font-medium text-xs md:text-sm text-slate-300">選擇日期：</span>
-                    <select id="dateFilterSelect" onchange="updateDashboard()" class="input-field min-w-[150px] font-bold text-teal-300">
-                        <option value="ALL">全部訓練日</option>
-                    </select>
-                </div>
-
-                <div class="flex items-center gap-2">
-                    <i data-lucide="baseball" class="text-amber-400 w-4 h-4"></i>
-                    <span class="font-medium text-xs md:text-sm text-slate-300">篩選球種：</span>
-                    <select id="pitchTypeSelect" onchange="updateDashboard()" class="input-field min-w-[160px] font-bold text-amber-300">
-                        <option value="ALL">全部球種總覽</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-2 justify-between md:justify-end">
-                <div id="athleteProfileBadge" class="text-xs text-slate-300 flex items-center gap-3 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-700/60">同步模式啟動中</div>
             </div>
         </div>
 
@@ -135,7 +115,7 @@
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm md:text-base font-bold text-teal-300 flex items-center gap-2">
                     <i data-lucide="list-ordered" class="w-4 h-4 text-teal-400"></i>
-                    <span>逐球詳細投球明細列表 (Pitch Log - 雲端同步)</span>
+                    <span>逐球詳細投球明細列表 (Cloud Sync)</span>
                 </h3>
                 <span id="pitchListCountBadge" class="text-xs px-2.5 py-1 rounded-full bg-teal-950/80 text-teal-300 border border-teal-700/60 font-semibold">共 0 球</span>
             </div>
@@ -155,7 +135,7 @@
                         </tr>
                     </thead>
                     <tbody id="pitchLogTableBody" class="divide-y divide-slate-800 font-mono">
-                        <tr><td colspan="9" class="p-4 text-center text-slate-500">正在從 Firebase 載入資料...</td></tr>
+                        <tr><td colspan="9" class="p-4 text-center text-slate-500">正在同步雲端資料...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -163,17 +143,9 @@
     </div>
 
     <script>
-        // ----------------------------------------------------
-        // 1. Firebase 雲端資料庫設定
-        // ----------------------------------------------------
+        // 已直接寫入你提供的 Firebase Realtime Database 網址
         const firebaseConfig = {
-            apiKey: "你的API_KEY",
-            authDomain: "你的專案.firebaseapp.com",
-            databaseURL: "https://rapsodo-pitching-dashboard-default-rtdb.firebaseio.com", // 確認這裡對應你的 Realtime Database 網址
-            projectId: "你的專案ID",
-            storageBucket: "你的專案.appspot.com",
-            messagingSenderId: "你的SenderID",
-            appId: "你的AppID"
+            databaseURL: "https://softball-data-bc28a-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
 
         let db = null;
@@ -183,8 +155,10 @@
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
             
-            // 監聽 Firebase 內的資料變動（即時同步核心）
-            db.ref('rapsodo/records').on('value', (snapshot) => {
+            document.getElementById('syncStatus').textContent = "正在連線至 Firebase 雲端...";
+
+            // 即時同步雲端資料庫中的 records 節點
+            db.ref('rapsodo_pitch_records').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     window.records = Array.isArray(data) ? data : Object.values(data);
@@ -197,34 +171,27 @@
                 updateDropdowns();
                 updateDashboard();
             }, (error) => {
-                console.error("Firebase 讀取失敗:", error);
-                document.getElementById('syncStatus').textContent = "Firebase 讀取權限受阻，請檢查 Database Rules";
+                console.error(error);
+                document.getElementById('syncStatus').textContent = "Firebase 讀取受阻，請檢查 Database Rules";
                 document.getElementById('syncStatus').className = "text-xs text-rose-400 mt-0.5";
             });
 
         } catch (e) {
-            console.warn("Firebase 初始化失敗，改用本機儲存模式:", e);
+            console.error(e);
+            document.getElementById('syncStatus').textContent = "Firebase 初始化失敗，改用本機模式";
+            document.getElementById('syncStatus').className = "text-xs text-rose-400 mt-0.5";
             window.records = JSON.parse(localStorage.getItem('rapsodo_records')) || [];
-            document.getElementById('syncStatus').textContent = "目前為本機離線模式";
-            document.getElementById('syncStatus').className = "text-xs text-amber-400 mt-0.5";
+            updateDropdowns();
+            updateDashboard();
         }
 
         lucide.createIcons();
-        updateDropdowns();
-        updateDashboard();
 
-        // ----------------------------------------------------
-        // 2. 匯入 Rapsodo CSV 並自動上傳至 Firebase 雲端
-        // ----------------------------------------------------
         function importCSV(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
             const reader = new FileReader();
-            reader.onload = function(e) {
-                parseRapsodoCSV(e.target.result);
-            };
-            // 支援 Big5 編碼以防中文亂碼
+            reader.onload = function(e) { parseRapsodoCSV(e.target.result); };
             reader.readAsText(file, 'Big5');
         }
 
@@ -247,7 +214,6 @@
 
                 const athleteName = row['Pitcher'] || row['Name'] || row['投手姓名'] || row['投手'] || '預設投手';
                 const pitchType = row['PitchType'] || row['TaggedPitchType'] || row['Pitch Type'] || row['球種'] || 'Fastball';
-                
                 const velo = parseFloat(row['RelSpeed'] || row['Velo'] || row['Velocity'] || row['球速'] || 0);
                 const spin = parseFloat(row['SpinRate'] || row['Spin Rate'] || row['轉速'] || 0);
                 const ivb = parseFloat(row['InducedVertBreak'] || row['VerticalBreak'] || row['垂直位移'] || 0);
@@ -267,26 +233,22 @@
                 });
             }
 
-            // 合並資料並同步上傳至 Firebase 雲端
             window.records = window.records.concat(newRecords);
             localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
 
             if (db) {
-                db.ref('rapsodo/records').set(window.records).then(() => {
+                db.ref('rapsodo_pitch_records').set(window.records).then(() => {
                     alert(`成功匯入 ${newRecords.length} 筆資料並同步至 Firebase 雲端！`);
                 }).catch((err) => {
-                    alert("上傳 Firebase 失敗，請確認 Firebase Rules 權限寫入設定: " + err.message);
+                    alert("同步至 Firebase 失敗: " + err.message);
                 });
             } else {
-                alert(`成功匯入 ${newRecords.length} 筆資料（本機模式）！`);
+                alert(`成功匯入 ${newRecords.length} 筆資料！`);
                 updateDropdowns();
                 updateDashboard();
             }
         }
 
-        // ----------------------------------------------------
-        // 3. 更新介面與下拉選單
-        // ----------------------------------------------------
         function updateDropdowns() {
             const athleteSelect = document.getElementById('athleteSelect');
             const currentSelected = athleteSelect.value;
@@ -317,13 +279,9 @@
                 const velos = filtered.map(r => r.velo).filter(v => v > 0);
                 const spins = filtered.map(r => r.spin).filter(s => s > 0);
                 
-                const avgVelo = velos.length ? (velos.reduce((a, b) => a + b, 0) / velos.length).toFixed(1) : '--';
-                const maxVelo = velos.length ? Math.max(...velos).toFixed(1) : '--';
-                const avgSpin = spins.length ? Math.round(spins.reduce((a, b) => a + b, 0) / spins.length) : '--';
-
-                document.getElementById('kpiAvgVelo').textContent = avgVelo;
-                document.getElementById('kpiMaxVelo').textContent = maxVelo;
-                document.getElementById('kpiSpin').textContent = avgSpin;
+                document.getElementById('kpiAvgVelo').textContent = velos.length ? (velos.reduce((a, b) => a + b, 0) / velos.length).toFixed(1) : '--';
+                document.getElementById('kpiMaxVelo').textContent = velos.length ? Math.max(...velos).toFixed(1) : '--';
+                document.getElementById('kpiSpin').textContent = spins.length ? Math.round(spins.reduce((a, b) => a + b, 0) / spins.length) : '--';
             } else {
                 document.getElementById('kpiAvgVelo').textContent = '--';
                 document.getElementById('kpiMaxVelo').textContent = '--';
@@ -332,7 +290,7 @@
 
             const tbody = document.getElementById('pitchLogTableBody');
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-500">目前雲端無資料，請點擊上方「匯入 Rapsodo CSV」</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-500">目前雲端尚無資料，請點擊上方「匯入 Rapsodo CSV」</td></tr>`;
                 return;
             }
 
@@ -351,15 +309,12 @@
             `).join('');
         }
 
-        // ----------------------------------------------------
-        // 4. 清空與匯出功能
-        // ----------------------------------------------------
-        function clearAllCloudData() {
+        function clearAllData() {
             if (confirm("確定要清空 Firebase 雲端與本機的所有投球資料嗎？")) {
                 window.records = [];
                 localStorage.removeItem('rapsodo_records');
                 if (db) {
-                    db.ref('rapsodo/records').remove().then(() => {
+                    db.ref('rapsodo_pitch_records').remove().then(() => {
                         alert("雲端資料已全數清空！");
                     });
                 }
