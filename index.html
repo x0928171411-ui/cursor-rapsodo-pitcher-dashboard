@@ -1,0 +1,221 @@
+        }
+        onValue(window.rapsodoRecordsRef, (snapshot) => {
+            const data = snapshot.val();
+            window.records = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+            localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
+            updateDropdowns();
+            updateDashboard();
+        });
+        onValue(window.rapsodoAthletesRef, (snapshot) => {
+            const data = snapshot.val();
+            window.athletes = data || {};
+            localStorage.setItem('rapsodo_athletes', JSON.stringify(window.athletes));
+            updateDropdowns();
+            updateDashboard();
+        });
+    </script>
+    <script>
+        window.athletes = JSON.parse(localStorage.getItem('rapsodo_athletes')) || {};
+        window.records = JSON.parse(localStorage.getItem('rapsodo_records')) || [];
+        window.catcherCameraMode = 'catcher';
+        const PITCH_COLORS = {
+            'FB': '#ef4444', 'FA': '#ef4444', 'FF': '#ef4444',
+            'FT': '#f97316', 'SI': '#ea580c',
+            'SL': '#eab308', 'FC': '#ca8a04',
+            'CB': '#06b6d4', 'CU': '#0891b2',
+            'CH': '#10b981', 'SP': '#3b82f6', 'FS': '#2563eb',
+            'OTHER': '#94a3b8'
+        };
+        const ZONE_IN = { x0: -8.5, x1: 8.5, z0: 18, z1: 42 };
+        // Visual depth is compressed so kids can see plate + release in one catcher camera.
+        const RELEASE_Y_FT = 7.2;
+        const MOUND_Y_FT = 8.4;
+        document.addEventListener("DOMContentLoaded", () => {
+            lucide.createIcons();
+            updateDropdowns();
+            updateDashboard();
+        });
+        function saveData() {
+            localStorage.setItem('rapsodo_athletes', JSON.stringify(window.athletes));
+            localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
+            if (window.rapsodoRecordsRef && window.set) window.set(window.rapsodoRecordsRef, window.records);
+            if (window.rapsodoAthletesRef && window.set) window.set(window.rapsodoAthletesRef, window.athletes);
+        }
+        function clearAllCloudData() {
+            if (!confirm('確定要清空雲端資料庫嗎？\n清空後請立即點選「匯入 Rapsodo CSV」，系統將把所有轉速、位移與好球帶數據完整同步！')) return;
+            window.records = [];
+            window.athletes = {};
+            saveData();
+            updateDropdowns();
+            updateDashboard();
+            alert('資料已成功清空！現在請點選「匯入 Rapsodo CSV」匯入報表。');
+        }
+        function getPitchName(pt) {
+            const map = {
+                'FB': '四縫線速球', 'FA': '快速球', 'FF': '四縫線', 'FT': '二縫線', 'SI': '伸卡球',
+                'CB': '曲球', 'CU': '曲球', 'SL': '滑球', 'CH': '變速球', 'SP': '指叉球', 'FS': '指叉球', 'FC': '卡特球'
+            };
+            return map[pt] || pt;
+        }
+        function getCol(row, matchNames) {
+            const keys = Object.keys(row);
+            for (let name of matchNames) {
+                const cleanTarget = name.toLowerCase().replace(/[\s_\(\)\/\-\[\]]/g, '');
+                for (let k of keys) {
+                    const cleanK = k.toLowerCase().replace(/[\s_\(\)\/\-\[\]]/g, '');
+                    if (cleanK === cleanTarget && row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '' && String(row[k]).trim() !== '--' && String(row[k]).trim() !== '-') {
+                        return row[k];
+                    }
+                }
+            }
+            return null;
+        }
+        function stdDev(values) {
+            if (!values || values.length < 2) return 0;
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const variance = values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / (values.length - 1);
+            return Math.sqrt(variance);
+        }
+        function classifyPlateHeight(pzInches) {
+            if (pzInches == null || isNaN(pzInches)) return null;
+            if (pzInches < ZONE_IN.z0) return '低';
+            if (pzInches > ZONE_IN.z1) return '高';
+            return '好球帶';
+        }
+        function importCSV(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            Papa.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    let count = 0;
+                    results.data.forEach((row, idx) => {
+                        const pitchId = String(getCol(row, ['PitchID', 'Pitch Id', 'Game Pitch']) || `pitch_${Date.now()}_${idx}`);
+                        const rawSpeed = getCol(row, ['RelSpeed (MPH)', 'RelSpeed', 'Velocity (MPH)', 'Velocity']);
+                        const speed = parseFloat(rawSpeed);
+                        if (isNaN(speed)) return;
+                        const gamePitch = getCol(row, ['Game Pitch', 'PitchNumber', 'Pitch No']);
+                        const pitchNum = gamePitch !== null ? parseInt(gamePitch) : (idx + 1);
+                        const rawPitchType = getCol(row, ['Pitch Type', 'PitchType', 'TaggedPitchType', 'Type']);
+                        const pitchType = (rawPitchType ? String(rawPitchType).trim().toUpperCase() : 'OTHER');
+                        let fName = getCol(row, ['Pitcher First Name', 'First Name']) || '';
+                        let lName = getCol(row, ['Pitcher Last Name', 'Last Name']) || '';
+                        let name = (lName + fName).trim();
+                        if (!name) name = String(getCol(row, ['Pitcher Name', 'Player Name', 'Player']) || '未命名投手').trim();
+                        const rawDateTime = String(getCol(row, ['Pitch Created At', 'Date', 'Time']) || '');
+                        let dateStr = rawDateTime.split(' ')[0] || new Date().toISOString().split('T')[0];
+                        let timeStr = rawDateTime.split(' ')[1] || '--';
+                        if (dateStr.includes('-')) {
+                            const dParts = dateStr.split('-');
+                            if (dParts.length === 3 && dParts[2].length === 4) {
+                                dateStr = `${dParts[2]}-${dParts[0]}-${dParts[1]}`;
+                            }
+                        }
+                        const rawSpin = getCol(row, ['SpinRate', 'SpinRate (RPM)', 'Spin Rate', 'Total Spin']);
+                        const spin = rawSpin !== null ? parseFloat(rawSpin) : null;
+                        const rawTrueSpin = getCol(row, ['TrueSpinRelease', 'True Spin']);
+                        const trueSpin = rawTrueSpin !== null ? parseFloat(rawTrueSpin) : null;
+                        const rawEff = getCol(row, ['Spin Efficiency', 'SpinEfficiency (%)', 'SpinEfficiency', 'True Spin %']);
+                        const spinEff = rawEff !== null ? parseFloat(rawEff) : null;
+                        const rawIVB = getCol(row, ['InducedVertBreak (Inches)', 'InducedVertBreak (in)', 'InducedVertBreak', 'Vertical Break (in)']);
+                        const ivb = rawIVB !== null ? parseFloat(rawIVB) : 0;
+                        const rawHB = getCol(row, ['HorzBreak (Inches)', 'HorzBreak (in)', 'HorzBreak', 'Horizontal Break (in)']);
+                        const hb = rawHB !== null ? parseFloat(rawHB) : 0;
+                        const rawRelH = getCol(row, ['RelHeight (Feet)', 'RelHeight (ft)', 'RelHeight']);
+                        const relHeight = rawRelH !== null ? parseFloat(rawRelH) : null;
+                        const rawRelS = getCol(row, ['RelSide (Feet)', 'RelSide (ft)', 'RelSide']);
+                        const relSide = rawRelS !== null ? parseFloat(rawRelS) : null;
+                        const rawPX = getCol(row, ['PlateLocSide (Inches)', 'PlateLocSide']);
+                        const px = rawPX !== null ? parseFloat(rawPX) : null;
+                        const rawPZ = getCol(row, ['PlateLocHeight (Inches)', 'PlateLocHeight']);
+                        const pz = rawPZ !== null ? parseFloat(rawPZ) : null;
+                        const isStrikeVal = String(getCol(row, ['Is Strike', 'IsStrike']) || '').toUpperCase();
+                        const isStrike = (isStrikeVal === 'Y' || isStrikeVal === 'TRUE');
+                        if (!window.athletes[name]) {
+                            window.athletes[name] = { gender: '男', hand: 'R', height: '', weight: '' };
+                        }
+                        const recordObj = {
+                            pitchId, pitchNum, name, date: dateStr, time: timeStr, pitchType, speed,
+                            spin, trueSpin, spinEff, ivb, hb, relHeight, relSide, px, pz, isStrike
+                        };
+                        const existingIdx = window.records.findIndex(r => r.pitchId === pitchId);
+                        if (existingIdx >= 0) window.records[existingIdx] = recordObj;
+                        else window.records.push(recordObj);
+                        count++;
+                    });
+                    alert(`成功讀取 ${count} 筆完整運科投球數據！正在同步至雲端...`);
+                    saveData();
+                    updateDropdowns();
+                    updateDashboard();
+                    e.target.value = '';
+                }
+            });
+        }
+        function updateDropdowns() {
+            const athSelect = document.getElementById('athleteSelect');
+            const prevAth = athSelect.value;
+            const names = [...new Set([...Object.keys(window.athletes), ...window.records.map(r => r.name)])];
+            athSelect.innerHTML = names.length ? '' : '<option value="">請先匯入 CSV</option>';
+            names.forEach(n => {
+                const opt = document.getElementById('athleteSelect') ? document.createElement('option') : null;
+                if (!opt) return;
+                opt.value = n; opt.textContent = n;
+                athSelect.appendChild(opt);
+            });
+            if (names.includes(prevAth)) athSelect.value = prevAth;
+            else if (names.length) athSelect.value = names[0];
+            onAthleteChange(false);
+        }
+        function onAthleteChange(triggerUpdate = true) {
+            const ath = document.getElementById('athleteSelect').value;
+            const ptSelect = document.getElementById('pitchTypeSelect');
+            const dateSelect = document.getElementById('dateFilterSelect');
+            if (!ath) return;
+            const athRecords = window.records.filter(r => r.name === ath);
+            const dates = [...new Set(athRecords.map(r => r.date))].sort().reverse();
+            dateSelect.innerHTML = `<option value="ALL">全部訓練日 (${dates.length} 天)</option>`;
+            dates.forEach(d => {
+                const opt = document.createElement('option'); opt.value = d; opt.textContent = d;
+                dateSelect.appendChild(opt);
+            });
+            const ptCounts = {};
+            athRecords.forEach(r => { ptCounts[r.pitchType] = (ptCounts[r.pitchType] || 0) + 1; });
+            const pTypes = Object.keys(ptCounts).sort((a,b) => ptCounts[b] - ptCounts[a]);
+            ptSelect.innerHTML = `<option value="ALL">全部球種總覽 (${athRecords.length} 球)</option>`;
+            pTypes.forEach(pt => {
+                const opt = document.createElement('option');
+                opt.value = pt;
+                opt.textContent = `${pt} - ${getPitchName(pt)} (${ptCounts[pt]} 球)`;
+                ptSelect.appendChild(opt);
+            });
+            if (triggerUpdate) updateDashboard();
+        }
+        function updateDashboard() {
+            const ath = document.getElementById('athleteSelect').value;
+            const pt = document.getElementById('pitchTypeSelect').value;
+            const date = document.getElementById('dateFilterSelect').value;
+            if (!ath) {
+                renderCatcher3D([]);
+                return;
+            }
+            const profile = window.athletes[ath] || {};
+            document.getElementById('athleteProfileBadge').innerHTML = `
+                <span class="font-bold text-sky-400 text-sm">${ath}</span>
+                <span>${profile.hand === 'L' ? '左投 (LHP)' : '右投 (RHP)'}</span>
+                <span>${profile.height ? profile.height + 'cm' : '--'}</span>
+                <span>${profile.weight ? profile.weight + 'kg' : '--'}</span>
+            `;
+            let filtered = window.records.filter(r => r.name === ath);
+            const totalAthPitches = filtered.length;
+            if (date !== 'ALL') filtered = filtered.filter(r => r.date === date);
+            if (pt !== 'ALL') filtered = filtered.filter(r => r.pitchType === pt);
+            updateKPIs(filtered, totalAthPitches, pt);
+            renderCharts(filtered, pt);
+            renderCatcher3D(filtered);
+            renderArsenalTable(window.records.filter(r => r.name === ath && (date === 'ALL' || r.date === date)));
+            renderPitchLogTable(filtered, date, pt);
+        }
+        function updateKPIs(data, totalAthPitches, currentPt) {
+            if (data.length === 0) {
