@@ -1,337 +1,81 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rapsodo 3D 投手投球分析儀表板</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Plotly.js -->
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <!-- Three.js (用於 3D 捕手視角) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Firebase SDK (Compat 版本) -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    
-    <style>
-        .glass-card {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(56, 189, 248, 0.15);
-            border-radius: 1rem;
-        }
-        .input-field {
-            background: rgba(30, 41, 59, 0.9);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 0.5rem;
-            padding: 0.35rem 0.75rem;
-            color: white;
-            font-size: 0.875rem;
-        }
-    </style>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-6 space-y-5 font-sans">
 
-    <div class="max-w-7xl mx-auto space-y-5">
-        <!-- 頂部導覽與操作按鈕 -->
-        <header class="glass-card p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-                <h1 class="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-teal-300 flex items-center gap-2">
-                    <i data-lucide="activity" class="w-7 h-7 text-sky-400"></i> Rapsodo 3D 投手投球分析儀表板
-                </h1>
-                <p id="syncStatus" class="text-xs text-amber-400 mt-0.5">正在連線至 Firebase 雲端...</p>
-            </div>
-            
-            <div class="flex flex-wrap items-center gap-2.5">
-                <label class="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 active:scale-95 rounded-lg text-xs md:text-sm font-semibold cursor-pointer transition shadow-lg shadow-sky-900/30">
-                    <i data-lucide="file-up" class="w-4 h-4"></i> 匯入 Rapsodo CSV
-                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="importCSV(event)">
-                </label>
+[185 lines collapsed]
 
-                <button onclick="clearAllData()" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 active:scale-95 rounded-lg text-xs font-semibold border border-rose-800 transition">
-                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 清空雲端資料
-                </button>
-
-                <button onclick="exportProcessedData()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded-lg text-xs font-semibold border border-slate-600 transition">
-                    <i data-lucide="download" class="w-3.5 h-3.5"></i> 匯出報表
-                </button>
-            </div>
-        </header>
-
-        <!-- 篩選器面板 -->
-        <div class="glass-card p-4 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="user" class="text-sky-400 w-4 h-4"></i>
-                    <span class="font-medium text-xs md:text-sm text-slate-300">投手：</span>
-                    <select id="athleteSelect" onchange="updateDashboard()" class="input-field min-w-[140px] font-bold text-sky-300">
-                        <option value="">載入中...</option>
-                    </select>
+            <div class="glass-card p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-sm md:text-base font-bold flex items-center gap-2">
+                        <i data-lucide="crosshair" class="text-rose-400 w-4 h-4"></i> 進壘點與好球帶 (Strike Zone Distribution)
+                        <i data-lucide="crosshair" class="text-rose-400 w-4 h-4"></i> 捕手視角進壘點與右打者站姿
+                    </h2>
+                    <span id="strikeRatioBadge" class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-rose-300 border border-slate-700">好球率: --</span>
                 </div>
-            </div>
-        </div>
 
-        <!-- KPI 數據看板 -->
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div class="glass-card p-3 border-l-4 border-l-sky-500">
-                <div class="text-slate-400 text-xs">總投球數</div>
-                <div id="kpiCount" class="text-xl md:text-2xl font-black text-white mt-1">0</div>
-            </div>
-            <div class="glass-card p-3 border-l-4 border-l-emerald-500">
-                <div class="text-slate-400 text-xs">平均球速 / 極速 (mph)</div>
-                <div class="flex items-baseline gap-1 mt-1">
-                    <span id="kpiAvgVelo" class="text-xl md:text-2xl font-black text-emerald-400">--</span>
-                    <span class="text-slate-500 text-xs">/</span>
-                    <span id="kpiMaxVelo" class="text-sm md:text-base font-bold text-emerald-200">--</span>
-                </div>
-            </div>
-            <div class="glass-card p-3 border-l-4 border-l-indigo-500">
-                <div class="text-slate-400 text-xs">平均轉速 (Spin Rate)</div>
-                <div id="kpiSpin" class="text-xl md:text-2xl font-black text-indigo-300 mt-1">--</div>
-            </div>
-            <div class="glass-card p-3 border-l-4 border-l-purple-500">
-                <div class="text-slate-400 text-xs">旋轉效率</div>
-                <div id="kpiEfficiency" class="text-xl md:text-2xl font-black text-purple-300 mt-1">--</div>
-            </div>
-            <div class="glass-card p-3 border-l-4 border-l-teal-500">
-                <div class="text-slate-400 text-xs">垂直/水平位移 (Inches)</div>
-                <div class="flex items-baseline gap-1 mt-1">
-                    <span id="kpiIVB" class="text-lg md:text-xl font-black text-teal-300">--</span>
-                    <span class="text-slate-500 text-xs">/</span>
-                    <span id="kpiHB" class="text-lg md:text-xl font-black text-cyan-300">--</span>
-                </div>
-            </div>
-            <div class="glass-card p-3 border-l-4 border-l-amber-500">
-                <div class="text-slate-400 text-xs">出球高度</div>
-                <div id="kpiRelease" class="text-lg md:text-xl font-black text-amber-300 mt-1">--</div>
-            </div>
-        </div>
+[159 lines collapsed]
 
-        <!-- 逐球明細列表 -->
-        <div class="glass-card p-4 md:p-5 border border-teal-500/30">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-sm md:text-base font-bold text-teal-300 flex items-center gap-2">
-                    <i data-lucide="list-ordered" class="w-4 h-4 text-teal-400"></i>
-                    <span>逐球詳細投球明細列表 (Cloud Sync)</span>
-                </h3>
-                <span id="pitchListCountBadge" class="text-xs px-2.5 py-1 rounded-full bg-teal-950/80 text-teal-300 border border-teal-700/60 font-semibold">共 0 球</span>
-            </div>
-            <div class="overflow-x-auto max-h-[450px] overflow-y-auto rounded-lg border border-slate-700/60">
-                <table class="w-full text-left text-xs text-slate-300">
-                    <thead class="bg-slate-900/95 text-slate-400 sticky top-0 z-10 text-[11px]">
-                        <tr>
-                            <th class="p-2.5">序號</th>
-                            <th class="p-2.5">投手</th>
-                            <th class="p-2.5">日期</th>
-                            <th class="p-2.5">球種</th>
-                            <th class="p-2.5">球速 (mph)</th>
-                            <th class="p-2.5">轉速 (rpm)</th>
-                            <th class="p-2.5">垂直位移 (IVB)</th>
-                            <th class="p-2.5">水平位移 (HB)</th>
-                            <th class="p-2.5">結果</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pitchLogTableBody" class="divide-y divide-slate-800 font-mono">
-                        <tr><td colspan="9" class="p-4 text-center text-slate-500">正在同步雲端資料...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // 已直接寫入你提供的 Firebase Realtime Database 網址
-        const firebaseConfig = {
-            databaseURL: "https://softball-data-bc28a-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
+        const ZONE_IN = { x0: -8.5, x1: 8.5, z0: 18, z1: 42 };
+        const RIGHT_HANDED_BATTER_IMAGE = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 500">
+                <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M91 153 L30 34" stroke="#fbbf24" stroke-width="12" opacity=".95"/>
+                    <path d="M28 30 L22 17" stroke="#fde68a" stroke-width="17"/>
+                    <path d="M88 151 L126 184" stroke="#cbd5e1" stroke-width="24"/>
+                    <path d="M95 160 L67 191" stroke="#e2e8f0" stroke-width="22"/>
+                    <circle cx="126" cy="187" r="14" fill="#fbbf24" stroke="#fef3c7" stroke-width="4"/>
+                    <path d="M111 120 C87 132 83 174 92 229 L130 267 C151 226 151 157 132 127 Z"
+                          fill="#38bdf8" stroke="#bae6fd" stroke-width="5"/>
+                    <path d="M98 263 C82 315 65 369 43 450" stroke="#e2e8f0" stroke-width="31"/>
+                    <path d="M128 263 C133 324 145 379 158 446" stroke="#cbd5e1" stroke-width="31"/>
+                    <path d="M28 453 L65 453" stroke="#38bdf8" stroke-width="20"/>
+                    <path d="M143 450 L174 450" stroke="#38bdf8" stroke-width="20"/>
+                    <circle cx="119" cy="83" r="38" fill="#f1f5f9" stroke="#94a3b8" stroke-width="5"/>
+                    <path d="M78 83 C82 36 137 25 158 63 L142 71 C133 51 103 52 96 86 Z"
+                          fill="#0ea5e9" stroke="#7dd3fc" stroke-width="5"/>
+                    <path d="M140 70 L171 80" stroke="#7dd3fc" stroke-width="10"/>
+                    <path d="M138 95 L157 101" stroke="#64748b" stroke-width="5"/>
+                    <path d="M110 119 L112 135" stroke="#e2e8f0" stroke-width="22"/>
+                </g>
+            </svg>
+        `);
+        // Visual depth is compressed so kids can see plate + release in one catcher camera.
+        const RELEASE_Y_FT = 7.2;
+        const MOUND_Y_FT = 8.4;
 
-        let db = null;
-        window.records = [];
+[586 lines collapsed]
 
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.database();
-            
-            document.getElementById('syncStatus').textContent = "正在連線至 Firebase 雲端...";
+            Plotly.newPlot('zonePlot', zoneTraces, {
+                ...darkLayout,
+                xaxis: { title: '本壘板水平位置 (Inches)', range: [-26, 26], zerolinecolor: '#334155', gridcolor: '#1e293b' },
+                xaxis: { title: '本壘板水平位置（捕手視角 / Inches）', range: [-30, 28], zerolinecolor: '#334155', gridcolor: '#1e293b' },
+                yaxis: { title: '離地高度 (Inches)', range: [0, 60], zerolinecolor: '#334155', gridcolor: '#1e293b' },
+                shapes: [
+                    { type: 'rect', xref: 'x', yref: 'y', x0: -8.5, y0: 18, x1: 8.5, y1: 42, line: { color: '#f43f5e', width: 2 } }
+                    { type: 'rect', xref: 'x', yref: 'y', x0: -8.5, y0: 18, x1: 8.5, y1: 42, line: { color: '#f43f5e', width: 2.5 } },
+                    {
+                        type: 'path',
+                        path: 'M -8.5 3 L 8.5 3 L 8.5 8 L 0 13 L -8.5 8 Z',
+                        fillcolor: 'rgba(56, 189, 248, 0.12)',
+                        line: { color: '#38bdf8', width: 2 }
+                    }
+                ],
+                images: [{
+                    source: RIGHT_HANDED_BATTER_IMAGE,
+                    xref: 'x',
+                    yref: 'y',
+                    x: -29,
+                    y: 57,
+                    sizex: 20,
+                    sizey: 54,
+                    xanchor: 'left',
+                    yanchor: 'top',
+                    sizing: 'contain',
+                    opacity: 0.9,
+                    layer: 'below'
+                }],
+                annotations: [
+                    { x: 0, y: 30, text: '好球帶', showarrow: false, font: { color: '#fda4af', size: 11 } },
+                    { x: -19, y: 57, text: '右打者', showarrow: false, font: { color: '#fbbf24', size: 10 } }
+                ]
+            }, { responsive: true, displayModeBar: false });
 
-            // 即時同步雲端資料庫中的 records 節點
-            db.ref('rapsodo_pitch_records').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    window.records = Array.isArray(data) ? data : Object.values(data);
-                } else {
-                    window.records = [];
-                }
-                localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
-                document.getElementById('syncStatus').textContent = "已連線至 Firebase 雲端（即時同步中）";
-                document.getElementById('syncStatus').className = "text-xs text-emerald-400 mt-0.5";
-                updateDropdowns();
-                updateDashboard();
-            }, (error) => {
-                console.error(error);
-                document.getElementById('syncStatus').textContent = "Firebase 讀取受阻，請檢查 Database Rules";
-                document.getElementById('syncStatus').className = "text-xs text-rose-400 mt-0.5";
-            });
-
-        } catch (e) {
-            console.error(e);
-            document.getElementById('syncStatus').textContent = "Firebase 初始化失敗，改用本機模式";
-            document.getElementById('syncStatus').className = "text-xs text-rose-400 mt-0.5";
-            window.records = JSON.parse(localStorage.getItem('rapsodo_records')) || [];
-            updateDropdowns();
-            updateDashboard();
-        }
-
-        lucide.createIcons();
-
-        function importCSV(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) { parseRapsodoCSV(e.target.result); };
-            reader.readAsText(file, 'Big5');
-        }
-
-        function parseRapsodoCSV(csvText) {
-            const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
-            if (lines.length < 2) return alert("CSV 檔案格式錯誤或無內容");
-            
-            const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
-            let newRecords = [];
-
-            for (let i = 1; i < lines.length; i++) {
-                const currentLine = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                if (currentLine.length < 2) continue;
-                
-                let row = {};
-                headers.forEach((h, index) => {
-                    let val = currentLine[index] ? currentLine[index].trim().replace(/^["']|["']$/g, '') : '';
-                    row[h] = val;
-                });
-
-                const athleteName = row['Pitcher'] || row['Name'] || row['投手姓名'] || row['投手'] || '預設投手';
-                const pitchType = row['PitchType'] || row['TaggedPitchType'] || row['Pitch Type'] || row['球種'] || 'Fastball';
-                const velo = parseFloat(row['RelSpeed'] || row['Velo'] || row['Velocity'] || row['球速'] || 0);
-                const spin = parseFloat(row['SpinRate'] || row['Spin Rate'] || row['轉速'] || 0);
-                const ivb = parseFloat(row['InducedVertBreak'] || row['VerticalBreak'] || row['垂直位移'] || 0);
-                const hb = parseFloat(row['HorzBreak'] || row['HorizontalBreak'] || row['水平位移'] || 0);
-                const call = row['PitchCall'] || row['Call'] || row['結果'] || '';
-
-                newRecords.push({
-                    id: 'p_' + Math.random().toString(36).substr(2, 9),
-                    athleteName: athleteName,
-                    date: row['Date'] || row['日期'] || new Date().toISOString().split('T')[0],
-                    pitchType: pitchType,
-                    velo: isNaN(velo) ? 0 : velo,
-                    spin: isNaN(spin) ? 0 : spin,
-                    ivb: isNaN(ivb) ? 0 : ivb,
-                    hb: isNaN(hb) ? 0 : hb,
-                    call: call
-                });
-            }
-
-            window.records = window.records.concat(newRecords);
-            localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
-
-            if (db) {
-                db.ref('rapsodo_pitch_records').set(window.records).then(() => {
-                    alert(`成功匯入 ${newRecords.length} 筆資料並同步至 Firebase 雲端！`);
-                }).catch((err) => {
-                    alert("同步至 Firebase 失敗: " + err.message);
-                });
-            } else {
-                alert(`成功匯入 ${newRecords.length} 筆資料！`);
-                updateDropdowns();
-                updateDashboard();
-            }
-        }
-
-        function updateDropdowns() {
-            const athleteSelect = document.getElementById('athleteSelect');
-            const currentSelected = athleteSelect.value;
-            const athletesSet = [...new Set(window.records.map(r => r.athleteName))];
-            
-            athleteSelect.innerHTML = athletesSet.length ? '' : '<option value="">無投手資料</option>';
-            athletesSet.forEach(name => {
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
-                athleteSelect.appendChild(opt);
-            });
-            if (athletesSet.includes(currentSelected)) {
-                athleteSelect.value = currentSelected;
-            } else if (athletesSet.length > 0) {
-                athleteSelect.value = athletesSet[0];
-            }
-        }
-
-        function updateDashboard() {
-            const currentAthlete = document.getElementById('athleteSelect').value;
-            const filtered = window.records.filter(r => !currentAthlete || r.athleteName === currentAthlete);
-            
-            document.getElementById('kpiCount').textContent = filtered.length;
-            document.getElementById('pitchListCountBadge').textContent = `共 ${filtered.length} 球`;
-
-            if (filtered.length > 0) {
-                const velos = filtered.map(r => r.velo).filter(v => v > 0);
-                const spins = filtered.map(r => r.spin).filter(s => s > 0);
-                
-                document.getElementById('kpiAvgVelo').textContent = velos.length ? (velos.reduce((a, b) => a + b, 0) / velos.length).toFixed(1) : '--';
-                document.getElementById('kpiMaxVelo').textContent = velos.length ? Math.max(...velos).toFixed(1) : '--';
-                document.getElementById('kpiSpin').textContent = spins.length ? Math.round(spins.reduce((a, b) => a + b, 0) / spins.length) : '--';
-            } else {
-                document.getElementById('kpiAvgVelo').textContent = '--';
-                document.getElementById('kpiMaxVelo').textContent = '--';
-                document.getElementById('kpiSpin').textContent = '--';
-            }
-
-            const tbody = document.getElementById('pitchLogTableBody');
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-500">目前雲端尚無資料，請點擊上方「匯入 Rapsodo CSV」</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = filtered.map((r, i) => `
-                <tr>
-                    <td class="p-2.5">${i + 1}</td>
-                    <td class="p-2.5 text-sky-300 font-semibold">${r.athleteName}</td>
-                    <td class="p-2.5 text-slate-400">${r.date}</td>
-                    <td class="p-2.5 font-bold text-amber-300">${r.pitchType}</td>
-                    <td class="p-2.5 text-emerald-400 font-bold">${r.velo || '--'}</td>
-                    <td class="p-2.5 text-indigo-300">${r.spin || '--'}</td>
-                    <td class="p-2.5 text-teal-300">${r.ivb || 0}</td>
-                    <td class="p-2.5 text-cyan-300">${r.hb || 0}</td>
-                    <td class="p-2.5 text-slate-400">${r.call || '--'}</td>
-                </tr>
-            `).join('');
-        }
-
-        function clearAllData() {
-            if (confirm("確定要清空 Firebase 雲端與本機的所有投球資料嗎？")) {
-                window.records = [];
-                localStorage.removeItem('rapsodo_records');
-                if (db) {
-                    db.ref('rapsodo_pitch_records').remove().then(() => {
-                        alert("雲端資料已全數清空！");
-                    });
-                }
-                updateDropdowns();
-                updateDashboard();
-            }
-        }
-
-        function exportProcessedData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.records));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", "rapsodo_cloud_data.json");
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-        }
-    </script>
-</body>
-</html>
+[179 lines collapsed]
