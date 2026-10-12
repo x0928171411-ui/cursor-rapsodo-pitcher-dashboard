@@ -68,7 +68,7 @@
                     <i data-lucide="user" class="text-sky-400 w-4 h-4"></i>
                     <span class="font-medium text-xs md:text-sm text-slate-300">投手：</span>
                     <select id="athleteSelect" onchange="onAthleteChange()" class="input-field min-w-[140px] font-bold text-sky-300">
-                        <option value="">載入中...</option>
+                        <option value="">請選擇或匯入資料</option>
                     </select>
                 </div>
 
@@ -90,7 +90,7 @@
             </div>
 
             <div class="flex items-center gap-2 justify-between md:justify-end">
-                <div id="athleteProfileBadge" class="text-xs text-slate-300 flex items-center gap-3 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-700/60"></div>
+                <div id="athleteProfileBadge" class="text-xs text-slate-300 flex items-center gap-3 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-700/60">尚未選擇投手</div>
                 <button onclick="openAthleteModal()" class="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-600 rounded-lg text-xs">
                     <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> 編輯資料
                 </button>
@@ -304,7 +304,7 @@
         </div>
     </div>
 
-    <!-- JavaScript 邏輯與 Firebase 即時同步 -->
+    <!-- JavaScript 邏輯與 Firebase 即時同步與 CSV 解析 -->
     <script>
         // 1. Firebase 初始化設定（請換成你們真實的 Firebase 專案設定）
         const firebaseConfig = {
@@ -317,45 +317,163 @@
             appId: "你的AppID"
         };
 
-        // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        let db = null;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+        } catch (e) {
+            console.log("Firebase 初始化略過或使用本地儲存模式");
+        }
 
-        // 資料庫參照路徑
-        window.rapsodoRecordsRef = db.ref('rapsodo/records');
-        window.rapsodoAthletesRef = db.ref('rapsodo/athletes');
+        window.records = JSON.parse(localStorage.getItem('rapsodo_records')) || [];
+        window.athletes = JSON.parse(localStorage.getItem('rapsodo_athletes')) || {};
 
-        window.records = [];
-        window.athletes = {};
-
-        // 2. 即時監聽雲端資料庫變更
-        onValue(window.rapsodoRecordsRef, (snapshot) => {
-            const data = snapshot.val();
-            window.records = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
-            localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
-            updateDropdowns();
-            updateDashboard();
-        });
-
-        onValue(window.rapsodoAthletesRef, (snapshot) => {
-            const data = snapshot.val();
-            window.athletes = data || {};
-            localStorage.setItem('rapsodo_athletes', JSON.stringify(window.athletes));
-            updateDropdowns();
-            updateDashboard();
-        });
+        // 即時雲端監聽（若 db 存在）
+        if (db) {
+            db.ref('rapsodo/records').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    window.records = Array.isArray(data) ? data : Object.values(data);
+                    localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
+                    updateDropdowns();
+                    updateDashboard();
+                }
+            });
+            db.ref('rapsodo/athletes').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    window.athletes = data;
+                    localStorage.setItem('rapsodo_athletes', JSON.stringify(window.athletes));
+                    updateDropdowns();
+                    updateDashboard();
+                }
+            });
+        }
 
         // 初始化 Lucide 圖標
         lucide.createIcons();
+        updateDropdowns();
+        updateDashboard();
 
-        // 佔位函式（可依專案需求填入對應的圖表繪製邏輯）
-        function updateDropdowns() {}
-        function updateDashboard() {}
-        function importCSV(event) {}
-        function clearAllCloudData() {}
-        function exportProcessedData() {}
-        function onAthleteChange() {}
-        function setCatcherCamera(mode) {}
+        // CSV 匯入與解析功能
+        function importCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseRapsodoCSV(text);
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function parseRapsodoCSV(csvText) {
+            const lines = csvText.split(/\r\n|\n/);
+            if (lines.length < 2) return alert("CSV 檔案格式錯誤或無內容");
+            
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            let newRecords = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                let row = {};
+                headers.forEach((h, index) => { row[h] = vals[index] || ''; });
+                
+                newRecords.push({
+                    id: 'p_' + Math.random().toString(36).substr(2, 9),
+                    athleteName: row['Pitcher'] || row['Name'] || '預設投手',
+                    date: row['Date'] || new Date().toISOString().split('T')[0],
+                    pitchType: row['PitchType'] || row['TaggedPitchType'] || 'Fastball',
+                    velo: parseFloat(row['RelSpeed'] || row['Velo'] || 0),
+                    spin: parseFloat(row['SpinRate'] || 0),
+                    efficiency: parseFloat(row['SpinEfficiency'] || 100),
+                    ivb: parseFloat(row['InducedVertBreak'] || 0),
+                    hb: parseFloat(row['HorzBreak'] || 0),
+                    plateLocSide: parseFloat(row['PlateLocSide'] || 0),
+                    plateLocHeight: parseFloat(row['PlateLocHeight'] || 0),
+                    releaseHeight: parseFloat(row['RelHeight'] || 0),
+                    releaseSide: parseFloat(row['RelSide'] || 0),
+                    call: row['PitchCall'] || 'StrikeCalled'
+                });
+            }
+
+            window.records = window.records.concat(newRecords);
+            localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
+
+            // 同步上傳到 Firebase（如果已連線）
+            if (db) {
+                db.ref('rapsodo/records').set(window.records);
+            }
+
+            updateDropdowns();
+            updateDashboard();
+            alert(`成功匯入 ${newRecords.length} 筆投球資料！`);
+        }
+
+        function updateDropdowns() {
+            const athleteSelect = document.getElementById('athleteSelect');
+            const athletesSet = [...new Set(window.records.map(r => r.athleteName))];
+            
+            athleteSelect.innerHTML = athletesSet.length ? '' : '<option value="">無投手資料</option>';
+            athletesSet.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                athleteSelect.appendChild(opt);
+            });
+            if (athletesSet.length > 0 && !athleteSelect.value) {
+                athleteSelect.value = athletesSet[0];
+            }
+        }
+
+        function updateDashboard() {
+            // 基本看板與圖表更新邏輯
+            const currentAthlete = document.getElementById('athleteSelect').value;
+            const filtered = window.records.filter(r => !currentAthlete || r.athleteName === currentAthlete);
+            
+            document.getElementById('kpiCount').textContent = filtered.length;
+            document.getElementById('pitchListCountBadge').textContent = `共 ${filtered.length} 球`;
+
+            const tbody = document.getElementById('pitchLogTableBody');
+            tbody.innerHTML = filtered.map((r, i) => `
+                <tr>
+                    <td class="p-2.5">${i + 1}</td>
+                    <td class="p-2.5">${r.date}</td>
+                    <td class="p-2.5">${r.pitchType}</td>
+                    <td class="p-2.5">${r.velo}</td>
+                    <td class="p-2.5">${r.spin}</td>
+                    <td class="p-2.5">${r.efficiency}%</td>
+                    <td class="p-2.5">${r.ivb}</td>
+                    <td class="p-2.5">${r.hb}</td>
+                    <td class="p-2.5">${r.releaseHeight}</td>
+                    <td class="p-2.5">${r.call}</td>
+                </tr>
+            `).join('');
+        }
+
+        function clearAllCloudData() {
+            if (confirm("確定要清空所有資料嗎？")) {
+                window.records = [];
+                localStorage.removeItem('rapsodo_records');
+                if (db) db.ref('rapsodo/records').remove();
+                updateDropdowns();
+                updateDashboard();
+            }
+        }
+
+        function exportProcessedData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.records));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "rapsodo_processed_data.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function onAthleteChange() { updateDashboard(); }
+        function setCatcherCamera(mode) { console.log("Camera mode:", mode); }
         function openAthleteModal() { document.getElementById('athleteModal').classList.remove('hidden'); }
         function closeAthleteModal() { document.getElementById('athleteModal').classList.add('hidden'); }
         function saveAthleteModal() { closeAthleteModal(); }
