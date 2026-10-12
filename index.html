@@ -67,7 +67,7 @@
                 <div class="flex items-center gap-2">
                     <i data-lucide="user" class="text-sky-400 w-4 h-4"></i>
                     <span class="font-medium text-xs md:text-sm text-slate-300">投手：</span>
-                    <select id="athleteSelect" onchange="onAthleteChange()" class="input-field min-w-[140px] font-bold text-sky-300">
+                    <select id="athleteSelect" onchange="updateDashboard()" class="input-field min-w-[140px] font-bold text-sky-300">
                         <option value="">請選擇或匯入資料</option>
                     </select>
                 </div>
@@ -149,259 +149,119 @@
                     </h2>
                     <p class="text-xs text-slate-400 mt-1">站在捕手後面往投手看。紅框是好球帶。線條從出手點飛到本壘板。</p>
                 </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <button onclick="setCatcherCamera('catcher')" class="px-3 py-1.5 text-xs rounded-lg bg-sky-700 hover:bg-sky-600 font-semibold">捕手視角</button>
-                    <button onclick="setCatcherCamera('side')" class="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600">側面</button>
-                    <button onclick="setCatcherCamera('top')" class="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600">俯視</button>
-                    <label class="flex items-center gap-1.5 text-xs text-slate-300 px-2">
-                        <input type="checkbox" id="showTrails" checked onchange="updateDashboard()"> 顯示飛行軌跡
-                    </label>
-                    <label class="flex items-center gap-1.5 text-xs text-slate-300 px-2">
-                        <input type="checkbox" id="showReleaseOnlySpread" checked onchange="updateDashboard()"> 標出手高低
-                    </label>
-                </div>
             </div>
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                <div class="bg-slate-900/70 rounded-lg p-3 border border-slate-700/70">
-                    <div class="text-[11px] text-slate-400">出手高低差</div>
-                    <div id="kidReleaseSpread" class="text-lg font-black text-amber-300">--</div>
-                    <div id="kidReleaseCoach" class="text-[11px] text-amber-200/80 mt-0.5">--</div>
-                </div>
-                <div class="bg-slate-900/70 rounded-lg p-3 border border-slate-700/70">
-                    <div class="text-[11px] text-slate-400">最低 / 最高出手</div>
-                    <div id="kidReleaseMinMax" class="text-lg font-black text-white">--</div>
-                    <div class="text-[11px] text-slate-400 mt-0.5">單位：英呎 (ft)</div>
-                </div>
-                <div class="bg-slate-900/70 rounded-lg p-3 border border-slate-700/70">
-                    <div class="text-[11px] text-slate-400">進壘高低差</div>
-                    <div id="kidPlateSpread" class="text-lg font-black text-rose-300">--</div>
-                    <div id="kidPlateCoach" class="text-[11px] text-rose-200/80 mt-0.5">--</div>
-                </div>
-                <div class="bg-slate-900/70 rounded-lg p-3 border border-slate-700/70">
-                    <div class="text-[11px] text-slate-400">進壘帶分布</div>
-                    <div id="kidZoneMix" class="flex flex-wrap gap-1 mt-1"></div>
-                </div>
-            </div>
-
-            <div id="catcherView3d" class="w-full h-[520px] md:h-[620px] rounded-lg bg-slate-950/40"></div>
-        </div>
-
-        <!-- 圖表區域 -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div class="glass-card p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-sm md:text-base font-bold flex items-center gap-2">
-                        <i data-lucide="compass" class="text-teal-400 w-4 h-4"></i> 球路位移分佈 (Movement Break Profile)
-                    </h2>
-                    <span class="text-[11px] text-slate-400">單位：英寸 (Inches)</span>
-                </div>
-                <div id="breakPlot" class="w-full h-[320px]"></div>
-            </div>
-
-            <div class="glass-card p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-sm md:text-base font-bold flex items-center gap-2">
-                        <i data-lucide="crosshair" class="text-rose-400 w-4 h-4"></i> 進壘點與好球帶 (Strike Zone Distribution)
-                    </h2>
-                    <span id="strikeRatioBadge" class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-rose-300 border border-slate-700">好球率: --</span>
-                </div>
-                <div id="zonePlot" class="w-full h-[320px]"></div>
-            </div>
-
-            <div class="glass-card p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-sm md:text-base font-bold flex items-center gap-2">
-                        <i data-lucide="trending-up" class="text-sky-400 w-4 h-4"></i> 球速與轉速時序趨勢
-                    </h2>
-                    <span class="text-[11px] text-slate-400">追蹤每次訓練日變化</span>
-                </div>
-                <div id="trendChart" class="w-full h-[300px]"></div>
-            </div>
-
-            <div class="glass-card p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-sm md:text-base font-bold flex items-center gap-2">
-                        <i data-lucide="target" class="text-amber-400 w-4 h-4"></i> 出球點高度與側向 (Release Point)
-                    </h2>
-                    <span class="text-[11px] text-slate-400">高度 vs 側向位置 (Feet)</span>
-                </div>
-                <div id="releasePlot" class="w-full h-[300px]"></div>
-            </div>
-        </div>
-
-        <!-- 球種矩陣總覽表格 -->
-        <div class="glass-card p-4 md:p-5">
-            <h3 class="text-sm md:text-base font-bold text-sky-300 mb-3 flex items-center gap-2">
-                <i data-lucide="layers" class="w-4 h-4"></i> 投手球種矩陣總覽 (Arsenal Overview)
-            </h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs md:text-sm text-slate-300">
-                    <thead class="bg-slate-900/90 text-slate-400 uppercase text-[11px]">
-                        <tr>
-                            <th class="p-2.5">球種</th>
-                            <th class="p-2.5">球數 (佔比)</th>
-                            <th class="p-2.5">均速 (極速)</th>
-                            <th class="p-2.5">球速 SD</th>
-                            <th class="p-2.5">平均轉速</th>
-                            <th class="p-2.5">旋轉效率</th>
-                            <th class="p-2.5">垂直位移 (IVB)</th>
-                            <th class="p-2.5">水平位移 (HB)</th>
-                            <th class="p-2.5">好球率 %</th>
-                        </tr>
-                    </thead>
-                    <tbody id="arsenalTableBody" class="divide-y divide-slate-800"></tbody>
-                </table>
-            </div>
+            <div id="catcherView3d" class="w-full h-[400px] rounded-lg bg-slate-950/40 flex items-center justify-center text-slate-500 text-sm">3D 視覺化視窗</div>
         </div>
 
         <!-- 逐球明細列表 -->
         <div class="glass-card p-4 md:p-5 border border-teal-500/30">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+            <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm md:text-base font-bold text-teal-300 flex items-center gap-2">
                     <i data-lucide="list-ordered" class="w-4 h-4 text-teal-400"></i>
-                    <span id="pitchListHeaderTitle">逐球詳細投球明細列表 (Pitch Log)</span>
+                    <span>逐球詳細投球明細列表 (Pitch Log)</span>
                 </h3>
                 <span id="pitchListCountBadge" class="text-xs px-2.5 py-1 rounded-full bg-teal-950/80 text-teal-300 border border-teal-700/60 font-semibold">共 0 球</span>
             </div>
-            <div class="overflow-x-auto max-h-[500px] overflow-y-auto rounded-lg border border-slate-700/60">
+            <div class="overflow-x-auto max-h-[400px] overflow-y-auto rounded-lg border border-slate-700/60">
                 <table class="w-full text-left text-xs text-slate-300">
                     <thead class="bg-slate-900/95 text-slate-400 sticky top-0 z-10 text-[11px]">
                         <tr>
-                            <th class="p-2.5">球數序號</th>
-                            <th class="p-2.5">投球時間</th>
+                            <th class="p-2.5">序號</th>
+                            <th class="p-2.5">投手</th>
                             <th class="p-2.5">球種</th>
                             <th class="p-2.5">球速 (mph)</th>
                             <th class="p-2.5">轉速 (rpm)</th>
-                            <th class="p-2.5">效率 (%)</th>
                             <th class="p-2.5">垂直位移 (IVB)</th>
                             <th class="p-2.5">水平位移 (HB)</th>
-                            <th class="p-2.5">出球高度</th>
-                            <th class="p-2.5">判定</th>
+                            <th class="p-2.5">結果</th>
                         </tr>
                     </thead>
-                    <tbody id="pitchLogTableBody" class="divide-y divide-slate-800 font-mono"></tbody>
+                    <tbody id="pitchLogTableBody" class="divide-y divide-slate-800 font-mono">
+                        <tr><td colspan="8" class="p-4 text-center text-slate-500">尚無資料，請點擊上方「匯入 Rapsodo CSV」按鈕</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- 編輯資料 Modal -->
-    <div id="athleteModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="glass-card p-6 w-full max-w-md space-y-4 border border-sky-500/40 shadow-2xl">
-            <h3 class="text-lg font-bold text-sky-300">編輯投手資料</h3>
-            <p class="text-xs text-slate-400">調整投手的個人資訊與備註。</p>
-            <div class="space-y-3">
-                <div>
-                    <label class="text-xs text-slate-300">投手姓名</label>
-                    <input type="text" id="modalAthleteName" class="input-field w-full mt-1">
-                </div>
-            </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button onclick="closeAthleteModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg">取消</button>
-                <button onclick="saveAthleteModal()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-xs font-semibold rounded-lg">儲存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- JavaScript 邏輯與 Firebase 即時同步與 CSV 解析 -->
     <script>
-        // 1. Firebase 初始化設定（請換成你們真實的 Firebase 專案設定）
+        // Firebase 簡易設定（若無填寫則自動切換為本機模式）
         const firebaseConfig = {
-            apiKey: "你的API_KEY",
-            authDomain: "你的專案.firebaseapp.com",
-            databaseURL: "https://你的專案-default-rtdb.firebaseio.com",
-            projectId: "你的專案ID",
-            storageBucket: "你的專案.appspot.com",
-            messagingSenderId: "你的SenderID",
-            appId: "你的AppID"
+            apiKey: "", authDomain: "", databaseURL: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: ""
         };
 
         let db = null;
         try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.database();
-        } catch (e) {
-            console.log("Firebase 初始化略過或使用本地儲存模式");
-        }
+            if (firebaseConfig.apiKey) {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+            }
+        } catch (e) { console.log("使用本機 localStorage 模式"); }
 
         window.records = JSON.parse(localStorage.getItem('rapsodo_records')) || [];
-        window.athletes = JSON.parse(localStorage.getItem('rapsodo_athletes')) || {};
 
-        // 即時雲端監聽（若 db 存在）
-        if (db) {
-            db.ref('rapsodo/records').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    window.records = Array.isArray(data) ? data : Object.values(data);
-                    localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
-                    updateDropdowns();
-                    updateDashboard();
-                }
-            });
-            db.ref('rapsodo/athletes').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    window.athletes = data;
-                    localStorage.setItem('rapsodo_athletes', JSON.stringify(window.athletes));
-                    updateDropdowns();
-                    updateDashboard();
-                }
-            });
-        }
-
-        // 初始化 Lucide 圖標
         lucide.createIcons();
         updateDropdowns();
         updateDashboard();
 
-        // CSV 匯入與解析功能
+        // 智慧欄位對應解析 CSV
         function importCSV(event) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
-                const text = e.target.result;
-                parseRapsodoCSV(text);
+                parseRapsodoCSV(e.target.result);
             };
             reader.readAsText(file, 'UTF-8');
         }
 
         function parseRapsodoCSV(csvText) {
-            const lines = csvText.split(/\r\n|\n/);
+            const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
             if (lines.length < 2) return alert("CSV 檔案格式錯誤或無內容");
             
-            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            // 處理 CSV 標頭（去除引號與空白）
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
             let newRecords = [];
 
             for (let i = 1; i < lines.length; i++) {
-                if (!lines[i].trim()) continue;
-                const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-                let row = {};
-                headers.forEach((h, index) => { row[h] = vals[index] || ''; });
+                const currentLine = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); // 支援引號內含逗號
+                if (currentLine.length < 2) continue;
                 
+                let row = {};
+                headers.forEach((h, index) => {
+                    let val = currentLine[index] ? currentLine[index].trim().replace(/^["']|["']$/g, '') : '';
+                    row[h] = val;
+                });
+
+                // 多種可能欄位名稱對應（支援 Rapsodo 不同版本輸出）
+                const athleteName = row['Pitcher'] || row['Name'] || row['投手'] || '預設投手';
+                const pitchType = row['PitchType'] || row['TaggedPitchType'] || row['球種'] || 'Fastball';
+                const velo = parseFloat(row['RelSpeed'] || row['Velo'] || row['球速'] || 0);
+                const spin = parseFloat(row['SpinRate'] || row['轉速'] || 0);
+                const ivb = parseFloat(row['InducedVertBreak'] || row['VerticalBreak'] || row['垂直位移'] || 0);
+                const hb = parseFloat(row['HorzBreak'] || row['HorizontalBreak'] || row['水平位移'] || 0);
+                const call = row['PitchCall'] || row['Call'] || row['結果'] || '';
+
                 newRecords.push({
                     id: 'p_' + Math.random().toString(36).substr(2, 9),
-                    athleteName: row['Pitcher'] || row['Name'] || '預設投手',
-                    date: row['Date'] || new Date().toISOString().split('T')[0],
-                    pitchType: row['PitchType'] || row['TaggedPitchType'] || 'Fastball',
-                    velo: parseFloat(row['RelSpeed'] || row['Velo'] || 0),
-                    spin: parseFloat(row['SpinRate'] || 0),
-                    efficiency: parseFloat(row['SpinEfficiency'] || 100),
-                    ivb: parseFloat(row['InducedVertBreak'] || 0),
-                    hb: parseFloat(row['HorzBreak'] || 0),
-                    plateLocSide: parseFloat(row['PlateLocSide'] || 0),
-                    plateLocHeight: parseFloat(row['PlateLocHeight'] || 0),
-                    releaseHeight: parseFloat(row['RelHeight'] || 0),
-                    releaseSide: parseFloat(row['RelSide'] || 0),
-                    call: row['PitchCall'] || 'StrikeCalled'
+                    athleteName: athleteName,
+                    date: row['Date'] || row['日期'] || new Date().toISOString().split('T')[0],
+                    pitchType: pitchType,
+                    velo: isNaN(velo) ? 0 : velo,
+                    spin: isNaN(spin) ? 0 : spin,
+                    ivb: isNaN(ivb) ? 0 : ivb,
+                    hb: isNaN(hb) ? 0 : hb,
+                    call: call
                 });
+            }
+
+            if (newRecords.length === 0) {
+                return alert("無法解析任何資料，請確認這是否為標準 Rapsodo CSV 格式！");
             }
 
             window.records = window.records.concat(newRecords);
             localStorage.setItem('rapsodo_records', JSON.stringify(window.records));
 
-            // 同步上傳到 Firebase（如果已連線）
             if (db) {
                 db.ref('rapsodo/records').set(window.records);
             }
@@ -428,7 +288,6 @@
         }
 
         function updateDashboard() {
-            // 基本看板與圖表更新邏輯
             const currentAthlete = document.getElementById('athleteSelect').value;
             const filtered = window.records.filter(r => !currentAthlete || r.athleteName === currentAthlete);
             
@@ -436,18 +295,21 @@
             document.getElementById('pitchListCountBadge').textContent = `共 ${filtered.length} 球`;
 
             const tbody = document.getElementById('pitchLogTableBody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-500">目前沒有資料，請點擊「匯入 Rapsodo CSV」</td></tr>`;
+                return;
+            }
+
             tbody.innerHTML = filtered.map((r, i) => `
                 <tr>
                     <td class="p-2.5">${i + 1}</td>
-                    <td class="p-2.5">${r.date}</td>
-                    <td class="p-2.5">${r.pitchType}</td>
-                    <td class="p-2.5">${r.velo}</td>
-                    <td class="p-2.5">${r.spin}</td>
-                    <td class="p-2.5">${r.efficiency}%</td>
-                    <td class="p-2.5">${r.ivb}</td>
-                    <td class="p-2.5">${r.hb}</td>
-                    <td class="p-2.5">${r.releaseHeight}</td>
-                    <td class="p-2.5">${r.call}</td>
+                    <td class="p-2.5">${r.athleteName}</td>
+                    <td class="p-2.5 font-bold text-amber-300">${r.pitchType}</td>
+                    <td class="p-2.5 text-emerald-400 font-bold">${r.velo}</td>
+                    <td class="p-2.5 text-indigo-300">${r.spin}</td>
+                    <td class="p-2.5 text-teal-300">${r.ivb}</td>
+                    <td class="p-2.5 text-cyan-300">${r.hb}</td>
+                    <td class="p-2.5 text-slate-400">${r.call}</td>
                 </tr>
             `).join('');
         }
@@ -472,11 +334,8 @@
             downloadAnchor.remove();
         }
 
-        function onAthleteChange() { updateDashboard(); }
-        function setCatcherCamera(mode) { console.log("Camera mode:", mode); }
-        function openAthleteModal() { document.getElementById('athleteModal').classList.remove('hidden'); }
-        function closeAthleteModal() { document.getElementById('athleteModal').classList.add('hidden'); }
-        function saveAthleteModal() { closeAthleteModal(); }
+        function openAthleteModal() { document.getElementById('athleteModal')?.classList.remove('hidden'); }
+        function closeAthleteModal() { document.getElementById('athleteModal')?.classList.add('hidden'); }
     </script>
 </body>
 </html>
